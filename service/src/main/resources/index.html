@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Index</title>
+</head>
+<body>
+  <h1>URL Shortener</h1>
+  <p>Enter a URL below to get a short URL link. Note that this app is only a demonstration, so the link will not last long.</p>
+  <form id="form">
+    <input type="text" id="input">
+    <input type="submit">
+  </form>
+  <br>
+  <table id="table">
+    <tr>
+      <th>Long URL</th>
+      <th>Short URL</th>
+    </tr>
+  </table>
+</body>
+<script>
+  const url = "https://short.evanknight.dev/";
+  const input = document.getElementById("input");
+  const table = document.getElementById("table");
+
+  const form = document.getElementById("form");
+  form.addEventListener("submit", handleSubmit);
+
+  function handleSubmit(event) {
+    event.preventDefault();
+    const inputVal = parseInput();
+
+    const row = document.createElement("tr");
+    row.appendChild(buildCell(inputVal.original, true, inputVal.result));
+    const loadingCell = buildCell("Loading...", false)
+    row.appendChild(loadingCell);
+    table.appendChild(row);
+
+    const xhr = new XMLHttpRequest();
+    xhr.onload = () => {
+      loadingCell.remove();
+      if (xhr.status === 200) {
+        row.appendChild(buildCell(url + JSON.parse(xhr.responseText).shortUrl, true));
+      } else {
+        row.appendChild(buildCell("Error: " + xhr.responseText, false));
+      }
+    };
+    xhr.open("POST", url);
+    xhr.send(JSON.stringify({longUrl: inputVal.result}));
+  }
+
+  function parseInput() {
+    const inputVal = input.value;
+    if (isValidUrl(inputVal)) {
+      return {result: inputVal, original: inputVal};
+    }
+
+    const modifiedInput = "https://" + inputVal;
+    if (isValidUrl(modifiedInput)) {
+      return {result: modifiedInput, original: inputVal};
+    }
+
+    alert(inputVal + " is an invalid URL");
+    throw new Error("Invalid URL: " + inputVal);
+  }
+
+  function isValidUrl(str) {
+    try {
+      new URL(str);
+      return true;
+    } catch (err) {
+      return false;
+    }
+  }
+
+  function buildCell(string, asHyperLink, url = string) {
+    const cell = document.createElement("td");
+    const text = document.createTextNode(string);
+    if (asHyperLink) {
+      const a = document.createElement("a");
+      a.appendChild(text);
+      a.setAttribute("href", url);
+      cell.appendChild(a);
+    } else {
+      cell.appendChild(text);
+    }
+    return cell;
+  }
+</script>
+</html>

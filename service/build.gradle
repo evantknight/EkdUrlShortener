@@ -1,0 +1,39 @@
+plugins {
+    id 'java'
+    id 'io.freefair.lombok' version '6.6.1'
+}
+
+group 'dev.evanknight.urlshortener'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    implementation platform('software.amazon.awssdk:bom:2.19.12')
+    implementation (
+            'software.amazon.awssdk:lambda',
+            'software.amazon.awssdk:dynamodb',
+            'com.amazonaws:aws-lambda-java-core:1.2.2',
+            'com.amazonaws:aws-lambda-java-events:3.11.0',
+
+            'com.google.code.gson:gson:2.10.1'
+    )
+    implementation project(':constants')
+
+    testImplementation 'org.junit.jupiter:junit-jupiter-api:5.8.1'
+    testRuntimeOnly 'org.junit.jupiter:junit-jupiter-engine:5.8.1'
+}
+
+task buildZip(type: Zip) {
+    from compileJava
+    from processResources
+    into('lib') {
+        from configurations.runtimeClasspath
+    }
+}
+
+test {
+    useJUnitPlatform()
+}

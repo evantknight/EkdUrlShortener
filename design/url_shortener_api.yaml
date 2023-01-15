@@ -1,0 +1,69 @@
+openapi: 3.0.3
+info:
+  title: URL Shortener
+  description: A simple URL shortener.
+  version: 1.0.0
+servers:
+  - url: 'https://short.evanknight.dev/'
+paths:
+  /{shortUrl}:
+    get:
+      operationId: getShortUrl
+      parameters:
+        - name: shortUrl
+          in: path
+          required: false
+          schema:
+            type: string
+      responses:
+        200:
+          description: Index page. This is returned when the shortUrl parameter is empty.
+          content:
+            text/html:
+              schema:
+                type: string
+        302:
+          description: Found mapping for short URL.
+          headers:
+            Location:
+              description: The URL corresponding to the requested short URL.
+              schema:
+                type: string
+        404:
+          description: No mapping was found for the given short URL.
+          content:
+            text/html:
+              schema:
+                type: string
+    post:
+      operationId: postShortUrl
+      requestBody:
+        description: Contains the long URL to be converted to a short URL.
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                longUrl:
+                  type: string
+              required:
+                - longUrl
+      responses:
+        200:
+          description: The short URL was successfully created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  shortUrl:
+                    type: string
+                required:
+                  - shortUrl
+        400:
+          description: Invalid request. More information may be found in the body of the response.
+          content:
+            text/plain:
+              schema:
+                type: string

@@ -1,0 +1,20 @@
+title Read Short URL
+
+actor User
+User->ApiGateway: GET short.evanknight.dev/{shortUrl}
+ApiGateway->ReadLambda: GET short.evanknight.dev/{shortUrl}
+
+alt No short URL provided
+ReadLambda->ApiGateway: Index HTML
+else Short URL provided
+database DynamoDB
+ReadLambda->DynamoDB: getItem(shortUrl)
+DynamoDB->ReadLambda: Optional<longUrl>
+alt Found mapping for short URL
+ReadLambda->ApiGateway: 302: LongUrl
+else No mapping for short URL
+ReadLambda->ApiGateway: 404: NotFound HTML
+end 
+end
+
+ApiGateway->User: ReadLambda response

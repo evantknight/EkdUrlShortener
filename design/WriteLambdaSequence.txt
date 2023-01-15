@@ -1,0 +1,20 @@
+title Create Short URL
+
+actor User
+User->ApiGateway: POST longUrl
+ApiGateway->WriteLambda: POST longUrl
+loop while shortUrl not created/found
+note over WriteLambda: Hash longUrl to get shortUrl
+database DynamoDB
+WriteLambda->DynamoDB: getItem(shortUrl)
+DynamoDB->WriteLambda: Optional<longUrl>
+alt Mapping for short URL found
+alt Found longUrl matches request
+WriteLambda->ApiGateway: shortUrl
+end
+else Mapping not found
+WriteLambda->DynamoDB: putItem(shortUrl, requestUrl)
+WriteLambda->ApiGateway: shortUrl
+end 
+end
+ApiGateway->User: shortUrl

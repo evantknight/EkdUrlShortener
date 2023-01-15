@@ -1,0 +1,38 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'io.freefair.lombok' version '6.6.1'
+}
+
+group 'dev.evanknight.urlshortener'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(11)
+    }
+}
+
+application {
+    mainClass = "dev.evanknight.urlshortener.infrastructure.EkdUrlShortenerApp"
+}
+
+def CDK_VERSION = "2.60.0"
+
+dependencies {
+
+    implementation(
+            "software.amazon.awscdk:aws-cdk-lib:${CDK_VERSION}",
+            "software.amazon.awscdk:apigatewayv2-alpha:${CDK_VERSION}-alpha.0",
+            "software.amazon.awscdk:apigatewayv2-integrations-alpha:${CDK_VERSION}-alpha.0",
+    )
+    implementation project(':constants')
+    implementation project(':service')
+
+}
+
+run.dependsOn ':service:buildZip'
