@@ -1,7 +1,7 @@
 # URL Shortener
 Demo at: [short.evanknight.dev](https://short.evanknight.dev/)
 
-This is a simple URL Shortener application. It is entirely serverless, REST-ish, and is written using AWS CDK.
+This is a simple URL Shortener application. It is entirely serverless, REST-ish, continuously deployed, and all infrastructure is code.
 
 This project was originally split up into separate packages and stored in a private repository; this repo merges
 the packages into a [monorepo](https://en.wikipedia.org/wiki/Monorepo) and has been lightly sanitised for public
@@ -107,7 +107,7 @@ cdk deploy
 
 ## Future Improvements
 1. CI/CD
-   1. Move deployment process to pipeline.
-   2. Add Test stage.
+   1. ~~Move deployment process to pipeline.~~
+   2. ~~Add Test stage.~~
    3. Add integration tests.
 2. Move static resources to CDN.

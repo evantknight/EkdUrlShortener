@@ -4,8 +4,9 @@ import dev.evanknight.urlshortener.constants.DynamoDb;
 import dev.evanknight.urlshortener.constants.Lambda;
 import dev.evanknight.urlshortener.service.lambda.ReadLambda;
 import dev.evanknight.urlshortener.service.lambda.WriteLambda;
-import software.amazon.awscdk.App;
+import lombok.Getter;
 import software.amazon.awscdk.Duration;
+import software.amazon.awscdk.RemovalPolicy;
 import software.amazon.awscdk.Stack;
 import software.amazon.awscdk.StackProps;
 import software.amazon.awscdk.services.apigatewayv2.alpha.AddRoutesOptions;
@@ -33,6 +34,7 @@ import software.amazon.awscdk.services.route53.HostedZoneProviderProps;
 import software.amazon.awscdk.services.route53.IHostedZone;
 import software.amazon.awscdk.services.route53.RecordTarget;
 import software.amazon.awscdk.services.route53.targets.ApiGatewayv2DomainProperties;
+import software.constructs.Construct;
 
 import java.util.List;
 import java.util.Map;
@@ -45,15 +47,15 @@ public class ServiceStack extends Stack {
     private static final String DOMAIN_NAME = "short." + ROOT_DOMAIN_NAME;
 
     // Table constants
-    private static final String URL_TABLE_NAME = "UrlTable";
+    private static final String URL_TABLE_NAME = "Table";
     private static final String DDB_ACTION_PREFIX = "dynamodb:";
     private static final String DDB_GET_ITEM_ACTION = DDB_ACTION_PREFIX + "GetItem";
     private static final String DDB_PUT_ITEM_ACTION = DDB_ACTION_PREFIX + "PutItem";
 
     // Lambda constants
     private static final String LAMBDA_ZIP_PATH = "../service/build/distributions/service-1.0-SNAPSHOT.zip";
-    private static final String URL_READ_LAMBDA_NAME = "UrlReadLambda";
-    private static final String URL_WRITE_LAMBDA_NAME = "UrlWriteLambda";
+    private static final String URL_READ_LAMBDA_NAME = "ReadLambda";
+    private static final String URL_WRITE_LAMBDA_NAME = "WriteLambda";
     private static final String READ_LAMBDA_HANDLER = ReadLambda.class.getName();
     private static final String WRITE_LAMBDA_HANDLER = WriteLambda.class.getName();
 
@@ -71,11 +73,14 @@ public class ServiceStack extends Stack {
     private static final String HOSTED_ZONE_NAME = "HostedZone";
     private static final String RECORD_NAME = "ApiRecord";
 
-    public ServiceStack(final App scope, final String id) {
-        this(scope, id, null);
+    @Getter
+    public final String apiEndpoint;
+
+    public ServiceStack(final Construct scope, final String id, final boolean addDns) {
+        this(scope, id, null, addDns);
     }
 
-    public ServiceStack(final App scope, final String id, final StackProps props) {
+    public ServiceStack(final Construct scope, final String id, final StackProps props, final boolean addDns) {
         super(scope, id, props);
 
         // DDB URL Table
@@ -87,14 +92,27 @@ public class ServiceStack extends Stack {
         // Write Lambda
         final Function writeLambda = getWriteLambda(urlTable);
 
-        // Route 53 (DNS)
-        final IHostedZone hostedZone = getDns();
+        if (addDns) {
+            // Route 53 (DNS)
+            final IHostedZone hostedZone = getDns();
 
-        // Certificate
-        final Certificate certificate = getCertificate(hostedZone);
+            // Certificate
+            final Certificate certificate = getCertificate(hostedZone);
 
-        // API Gateway
-        buildApi(certificate, readLambda, writeLambda, hostedZone);
+            // Domain name
+            final DomainName domainName = getApiDomainName(certificate);
+
+            // API Gateway
+            getApi(readLambda, writeLambda, domainName);
+
+            // Add DNS record
+            addApiDnsRecord(hostedZone, domainName);
+
+            apiEndpoint = DOMAIN_NAME;
+        } else {
+            final HttpApi api = getApi(readLambda, writeLambda);
+            apiEndpoint = api.getApiEndpoint();
+        }
     }
 
     private Table getUrlDdbTable() {
@@ -104,6 +122,7 @@ public class ServiceStack extends Stack {
                         .type(AttributeType.STRING)
                         .build())
                 .timeToLiveAttribute(DynamoDb.TTL_NAME)
+                .removalPolicy(RemovalPolicy.DESTROY)
                 .build();
     }
 
@@ -113,7 +132,6 @@ public class ServiceStack extends Stack {
         final Function function = Function.Builder.create(this, name)
                 .runtime(Runtime.JAVA_11)
                 .code(Code.fromAsset(LAMBDA_ZIP_PATH))
-                .functionName(name)
                 .handler(handler)
                 .timeout(Duration.seconds(30))
                 .memorySize(1024)
@@ -167,29 +185,33 @@ public class ServiceStack extends Stack {
                 .build();
     }
 
-    private void buildApi(final Certificate certificate,
-                          final Function readLambda,
-                          final Function writeLambda,
-                          final IHostedZone hostedZone) {
-
-        // Build custom domain.
-        final DomainName domainName = DomainName.Builder.create(this, DOMAIN_NAME_NAME)
+    public DomainName getApiDomainName(final Certificate certificate) {
+        return DomainName.Builder.create(this, DOMAIN_NAME_NAME)
                 .domainName(DOMAIN_NAME)
                 .certificate(certificate)
                 .endpointType(EndpointType.REGIONAL)
                 .build();
+    }
 
+    private HttpApi getApi(final Function readLambda, final Function writeLambda) {
+        return getApi(readLambda, writeLambda, null);
+    }
+
+    private HttpApi getApi(final Function readLambda, final Function writeLambda, final DomainName domainName) {
         // Create API.
-        final HttpApi httpApi = HttpApi.Builder.create(this, API_NAME)
+        final HttpApi.Builder builder = HttpApi.Builder.create(this, API_NAME)
                 .corsPreflight(CorsPreflightOptions.builder()
                                        .allowMethods(List.of(CorsHttpMethod.GET, CorsHttpMethod.POST))
                                        .allowOrigins(List.of(API_URL))
                                        .maxAge(Duration.days(7))
-                                       .build())
-                .defaultDomainMapping(DomainMappingOptions.builder()
-                                              .domainName(domainName)
-                                              .build())
-                .build();
+                                       .build());
+        if (domainName != null) {
+            builder.defaultDomainMapping(DomainMappingOptions.builder()
+                                                 .domainName(domainName)
+                                                 .build())
+                    .disableExecuteApiEndpoint(true);
+        }
+        final HttpApi httpApi = builder.build();
 
         // Add route and integrations.
         // Note: CurrentVersion is used as a workaround in order to use Lambda SnapStart. If we were to pass just
@@ -207,7 +229,10 @@ public class ServiceStack extends Stack {
                                   .integration(writeLambdaIntegration)
                                   .build());
 
-        // Add domain record to DNS.
+        return httpApi;
+    }
+
+    public void addApiDnsRecord(final IHostedZone hostedZone, final DomainName domainName) {
         ARecord.Builder.create(this, RECORD_NAME)
                 .zone(hostedZone)
                 .recordName(DOMAIN_NAME)
