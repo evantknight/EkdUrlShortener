@@ -2,6 +2,7 @@ package dev.evanknight.urlshortener.infrastructure.stack.dev;
 
 import dev.evanknight.urlshortener.infrastructure.stack.dev.stage.AppStage;
 import software.amazon.awscdk.App;
+import software.amazon.awscdk.RemovalPolicy;
 import software.amazon.awscdk.Stack;
 import software.amazon.awscdk.StackProps;
 import software.amazon.awscdk.Stage;
@@ -9,10 +10,15 @@ import software.amazon.awscdk.StageProps;
 import software.amazon.awscdk.pipelines.CodeBuildStep;
 import software.amazon.awscdk.pipelines.CodePipeline;
 import software.amazon.awscdk.pipelines.CodePipelineSource;
+import software.amazon.awscdk.services.codebuild.BuildSpec;
+import software.amazon.awscdk.services.codebuild.Cache;
 import software.amazon.awscdk.services.codecommit.Repository;
 import software.amazon.awscdk.services.iam.PolicyStatement;
+import software.amazon.awscdk.services.s3.BlockPublicAccess;
+import software.amazon.awscdk.services.s3.Bucket;
 
 import java.util.List;
+import java.util.Map;
 
 import static dev.evanknight.urlshortener.infrastructure.constant.StageNames.PROD_STAGE_NAME;
 import static dev.evanknight.urlshortener.infrastructure.constant.StageNames.TEST_STAGE_NAME;
@@ -67,6 +73,11 @@ public class DevStack extends Stack {
                 .repositoryName(REPOSITORY_NAME)
                 .build();
 
+        final Bucket cacheBucket = Bucket.Builder.create(this, "BuildCacheBucket")
+                .blockPublicAccess(BlockPublicAccess.BLOCK_ALL)
+                .removalPolicy(RemovalPolicy.DESTROY)
+                .build();
+
         return CodeBuildStep.Builder.create(SYNTH_STEP_NAME)
                 .input(CodePipelineSource.codeCommit(repository, REPOSITORY_BRANCH))
                 .installCommands(List.of(
@@ -75,13 +86,19 @@ public class DevStack extends Stack {
                 .commands(List.of(
                         "chmod +x ./gradlew",
                         "cd infrastructure",
-                        "cdk synth --app \"cd .. && ./gradlew run\""
+                        "cdk synth --app \"cd .. && ./gradlew --build-cache --gradle-user-home gradleHome/ run\""
                 ))
                 .rolePolicyStatements(List.of(PolicyStatement.Builder.create()
                                                       .actions(List.of("route53:ListHostedZonesByName"))
                                                       .resources(List.of("*"))
                                                       .build()))
                 .primaryOutputDirectory("infrastructure/cdk.out")
+                .cache(Cache.bucket(cacheBucket))
+                .partialBuildSpec(BuildSpec.fromObject(Map.of("cache",
+                                                              Map.of("paths", List.of(
+                                                                      "gradleHome/caches/**/*",
+                                                                      "gradleHome/wrapper/**/*",
+                                                                      "gradleHome/notifications/**/*")))))
                 .build();
     }
 
