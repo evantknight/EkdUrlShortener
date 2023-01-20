@@ -21,7 +21,7 @@ application {
     mainClass = "dev.evanknight.urlshortener.infrastructure.EkdUrlShortenerApp"
 }
 
-def CDK_VERSION = "2.60.0"
+def CDK_VERSION = "2.61.0"
 
 dependencies {
 
@@ -29,6 +29,8 @@ dependencies {
             "software.amazon.awscdk:aws-cdk-lib:${CDK_VERSION}",
             "software.amazon.awscdk:apigatewayv2-alpha:${CDK_VERSION}-alpha.0",
             "software.amazon.awscdk:apigatewayv2-integrations-alpha:${CDK_VERSION}-alpha.0",
+
+            "com.google.guava:guava:31.1-jre"
     )
     implementation project(':constants')
     implementation project(':service')

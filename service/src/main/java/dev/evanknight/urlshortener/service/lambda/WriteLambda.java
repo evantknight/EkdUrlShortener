@@ -4,6 +4,8 @@ import com.amazonaws.services.lambda.runtime.Context;
 import com.amazonaws.services.lambda.runtime.RequestHandler;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPEvent;
 import com.amazonaws.services.lambda.runtime.events.APIGatewayV2HTTPResponse;
+import dev.evanknight.urlshortener.service.model.WriteLambdaRequest;
+import dev.evanknight.urlshortener.service.model.WriteLambdaResponse;
 import dev.evanknight.urlshortener.service.proxy.DynamoDb;
 import dev.evanknight.urlshortener.service.util.SerializationUtils;
 
@@ -12,15 +14,15 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.Base64;
 import java.util.Map;
 import java.util.Optional;
 
-import static dev.evanknight.urlshortener.service.constant.LambdaConstants.LONG_URL_KEY;
-import static dev.evanknight.urlshortener.service.constant.LambdaConstants.SHORT_URL_KEY;
 import static dev.evanknight.urlshortener.service.constant.ResponseConstants.CONTENT_TYPE_HEADER;
 import static dev.evanknight.urlshortener.service.constant.ResponseConstants.HttpStatus.BAD_REQUEST;
 import static dev.evanknight.urlshortener.service.constant.ResponseConstants.HttpStatus.SUCCESS;
 import static dev.evanknight.urlshortener.service.constant.ResponseConstants.JSON_CONTENT;
+import static dev.evanknight.urlshortener.service.constant.ResponseConstants.TEXT_CONTENT;
 
 // TODO: Consider using unique id generator for shortUrl.
 public class WriteLambda implements RequestHandler<APIGatewayV2HTTPEvent, APIGatewayV2HTTPResponse> {
@@ -43,21 +45,34 @@ public class WriteLambda implements RequestHandler<APIGatewayV2HTTPEvent, APIGat
 
     @Override
     public APIGatewayV2HTTPResponse handleRequest(final APIGatewayV2HTTPEvent request, final Context context) {
-        final Map<String, String> bodyJson = SerializationUtils.jsonToMap(request.getBody());
-        final String longUrlRequest = bodyJson.get(LONG_URL_KEY);
+        // Decode body, if necessary.
+        final String body;
+        if (request.getIsBase64Encoded()) {
+            body = new String(Base64.getDecoder().decode(request.getBody()));
+        } else {
+            body = request.getBody();
+        }
 
+        // Parse request.
+        final WriteLambdaRequest writeLambdaRequest;
+        try {
+            writeLambdaRequest = SerializationUtils.fromJson(body, WriteLambdaRequest.class);
+        } catch (final Exception exception) {
+            return getInvalidRequestResponse("Could not parse request: " + body);
+        }
+        final String longUrlRequest = writeLambdaRequest.getLongUrl();
+
+        // Validate URL.
         final String longUrl;
         if (isValidUrl(longUrlRequest)) {
             longUrl = longUrlRequest;
         } else if (isValidUrl(HTTPS + longUrlRequest)) {
             longUrl = HTTPS + longUrlRequest;
         } else {
-            return APIGatewayV2HTTPResponse.builder()
-                    .withStatusCode(BAD_REQUEST.code)
-                    .withBody("Invalid URL")
-                    .build();
+            return getInvalidRequestResponse("Invalid URL: " + longUrlRequest);
         }
 
+        // Convert and put.
         final byte[] longUrlBytes = longUrl.getBytes();
         try {
             final MessageDigest messageDigest = MessageDigest.getInstance(HASH_ALGO);
@@ -117,10 +132,19 @@ public class WriteLambda implements RequestHandler<APIGatewayV2HTTPEvent, APIGat
     }
 
     private static APIGatewayV2HTTPResponse getSuccessResponse(final String shortUrl) {
+        final WriteLambdaResponse response = new WriteLambdaResponse(shortUrl);
         return APIGatewayV2HTTPResponse.builder()
                 .withStatusCode(SUCCESS.code)
                 .withHeaders(JSON_HEADER)
-                .withBody(SerializationUtils.toJson(SHORT_URL_KEY, shortUrl))
+                .withBody(SerializationUtils.toJson(response))
+                .build();
+    }
+
+    private static APIGatewayV2HTTPResponse getInvalidRequestResponse(final String reason) {
+        return APIGatewayV2HTTPResponse.builder()
+                .withStatusCode(BAD_REQUEST.code)
+                .withHeaders(Map.of(CONTENT_TYPE_HEADER, TEXT_CONTENT))
+                .withBody(reason)
                 .build();
     }
 

@@ -17,6 +17,7 @@ public class ResponseConstants {
     public static final String CONTENT_TYPE_HEADER = "Content-Type";
     public static final String JSON_CONTENT = "application/json";
     public static final String HTML_CONTENT = "text/html";
+    public static final String TEXT_CONTENT = "text/plain";
 
     public static final String LOCATION_HEADER = "Location";
 }

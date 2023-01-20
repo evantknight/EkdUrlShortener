@@ -2,4 +2,5 @@ rootProject.name = 'EkdUrlShortener'
 include 'service'
 include 'constants'
 include 'infrastructure'
+include 'tests'
 

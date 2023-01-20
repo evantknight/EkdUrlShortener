@@ -1,0 +1,25 @@
+plugins {
+    id 'java'
+}
+
+group 'dev.evanknight.urlshortener'
+version '1.0-SNAPSHOT'
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation project(':service')
+    testImplementation project(':constants')
+
+    testImplementation(
+            'com.google.code.gson:gson:2.10.1',
+            'org.testng:testng:7.7.1'
+    )
+
+}
+
+test {
+    useTestNG()
+}

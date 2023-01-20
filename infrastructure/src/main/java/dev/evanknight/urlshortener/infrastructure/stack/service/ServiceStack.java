@@ -5,6 +5,7 @@ import dev.evanknight.urlshortener.constants.Lambda;
 import dev.evanknight.urlshortener.service.lambda.ReadLambda;
 import dev.evanknight.urlshortener.service.lambda.WriteLambda;
 import lombok.Getter;
+import software.amazon.awscdk.CfnOutput;
 import software.amazon.awscdk.Duration;
 import software.amazon.awscdk.RemovalPolicy;
 import software.amazon.awscdk.Stack;
@@ -74,7 +75,7 @@ public class ServiceStack extends Stack {
     private static final String RECORD_NAME = "ApiRecord";
 
     @Getter
-    public final String apiEndpoint;
+    public final CfnOutput apiEndpoint;
 
     public ServiceStack(final Construct scope, final String id, final boolean addDns) {
         this(scope, id, null, addDns);
@@ -108,10 +109,14 @@ public class ServiceStack extends Stack {
             // Add DNS record
             addApiDnsRecord(hostedZone, domainName);
 
-            apiEndpoint = DOMAIN_NAME;
+            apiEndpoint = CfnOutput.Builder.create(this, "ApiEndpoint")
+                    .value(API_URL)
+                    .build();
         } else {
             final HttpApi api = getApi(readLambda, writeLambda);
-            apiEndpoint = api.getApiEndpoint();
+            apiEndpoint = CfnOutput.Builder.create(this, "ApiEndpoint")
+                    .value(api.getApiEndpoint())
+                    .build();
         }
     }
 

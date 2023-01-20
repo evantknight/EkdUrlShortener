@@ -16,6 +16,10 @@ public class SerializationUtils {
         return GSON.fromJson(json, MAP_TYPE);
     }
 
+    public static <T> T fromJson(final String json, final Class<T> target) {
+        return GSON.fromJson(json, target);
+    }
+
     public static String toJson(final Object source) {
         return GSON.toJson(source);
     }
