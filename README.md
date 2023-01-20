@@ -106,8 +106,8 @@ cdk deploy
 ```
 
 ## Future Improvements
-1. CI/CD
+1. ~~CI/CD~~
    1. ~~Move deployment process to pipeline.~~
    2. ~~Add Test stage.~~
-   3. Add integration tests.
+   3. ~~Add integration tests.~~
 2. Move static resources to CDN.
