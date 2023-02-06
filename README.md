@@ -91,19 +91,16 @@ HTML serving is done directly from the ReadLambda function. It reads the HTML on
 it can be served when needed. Since the HTML is small, it doesn't really have an impact on the memory footprint of
 the lambda. However, it would be ideal to eventually move this to a CDN (see Future Improvements section below).
 
-## How to deploy
-### Prerequisites
-1. Set up [AWS CLI](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) 
-and [AWS CDK](https://docs.aws.amazon.com/cdk/v2/guide/getting_started.html#getting_started_prerequisites) on your machine.
-2. Configure AWS CLI to deploy to the desired account.
-3. [Optional] If you want to use Route 53 and make this publicly accessible:
-   1. Change evanknight.dev references to desired URL.
+### Pipeline
+The pipeline is set up as follows:
 
-### Deployment
-```bash
-cd infrastructure
-cdk deploy
-```
+source -> build -> mutate -> test stage -> prod stage
+
+Integration tests are performed at the end of test stage and prod stage.
+
+### Testing
+Due to how Lambda and SnapStart works, unit testing is especially difficult. Therefore, testing for this is delegated
+entirely to integration testing.
 
 ## Future Improvements
 1. ~~CI/CD~~
